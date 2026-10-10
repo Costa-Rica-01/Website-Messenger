@@ -1,0 +1,886 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP Tracker Pro</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root{
+  --bg:#08111f;
+  --panel:#101d30;
+  --border:#263a54;
+  --text:#edf5ff;
+  --muted:#91a7c2;
+  --blue:#3984ff;
+  --green:#25d695;
+  --red:#ff6174;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(135deg,#07101d,#0c1930,#10172b);
+  color:var(--text);
+  font-family:Arial,sans-serif;
+}
+header{
+  padding:26px 15px;
+  text-align:center;
+  background:#0b1728;
+  border-bottom:1px solid var(--border);
+}
+header h1{margin:0;font-size:27px}
+header h1 i{color:#58a2ff}
+header p{color:var(--muted);line-height:1.6}
+.container{width:min(1200px,94%);margin:24px auto}
+.panel,.stat{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:15px;
+  padding:18px;
+  margin-bottom:18px;
+}
+h2{font-size:19px;margin-top:0}
+.search{display:flex;gap:10px}
+input{
+  min-width:0;
+  flex:1;
+  padding:14px;
+  color:white;
+  background:#091526;
+  border:1px solid #304866;
+  border-radius:10px;
+  font-size:16px;
+}
+input:focus{outline:2px solid #3984ff}
+button{
+  border:0;
+  border-radius:9px;
+  padding:12px 15px;
+  cursor:pointer;
+  font-weight:bold;
+  color:white;
+  transition:.2s;
+}
+button:hover:not(:disabled){filter:brightness(1.12)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:var(--blue)}
+.secondary{background:#233953}
+.green{background:#087f60}
+.danger{background:#69283a}
+.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.status{margin-top:14px;color:var(--muted);font-size:14px;line-height:1.6}
+.status.ok{color:var(--green)}
+.status.error{color:var(--red)}
+.stats{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:18px;
+}
+.stat{margin:0;overflow-wrap:anywhere}
+.stat i{color:#58a2ff;font-size:20px}
+.stat small{display:block;color:var(--muted);margin:12px 0 7px}
+.stat strong{font-size:15px}
+.layout{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+  align-items:start;
+}
+.details{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+}
+.detail{
+  min-width:0;
+  background:#0b192b;
+  border:1px solid #203550;
+  border-radius:9px;
+  padding:12px;
+}
+.detail small{display:block;color:var(--muted);margin-bottom:7px}
+.detail strong{font-size:14px;overflow-wrap:anywhere;word-break:break-word}
+#map{height:370px;width:100%;border-radius:10px;background:#0b192b}
+.note,.caption{color:var(--muted);font-size:13px;line-height:1.7}
+.history-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  background:#0b192b;
+  border:1px solid #203550;
+  padding:12px;
+  border-radius:10px;
+  margin-bottom:9px;
+}
+.history-item div{min-width:0;overflow-wrap:anywhere}
+.history-item small{display:block;color:var(--muted);margin-top:5px}
+.history-item button{flex-shrink:0}
+.badge{
+  display:inline-block;
+  background:#183b61;
+  color:#b8dcff;
+  padding:5px 9px;
+  border-radius:20px;
+  font-size:12px;
+}
+footer{
+  text-align:center;
+  padding:25px;
+  border-top:1px solid var(--border);
+  color:var(--muted);
+  font-size:13px;
+}
+@media(max-width:800px){
+  .layout{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:500px){
+  header h1{font-size:22px}
+  .search{flex-direction:column}
+  .search button{width:100%}
+  .panel{padding:14px}
+  .details{grid-template-columns:1fr 1fr}
+  #map{height:310px}
+  .stat{padding:13px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1><i class="fa-solid fa-location-dot"></i> IP TRACKER PRO</h1>
+  <p>Consulta direcciones IPv4 e IPv6, proveedores, organizaciones y ubicaciones aproximadas.</p>
+</header>
+
+<main class="container">
+
+<section class="panel">
+  <h2><i class="fa-solid fa-magnifying-glass"></i> Consultar dirección IP</h2>
+
+  <form id="searchForm">
+    <div class="search">
+      <input id="ipInput" type="text"
+        placeholder="Ej.: 8.8.8.8 o 192.168.1.10"
+        autocomplete="off" spellcheck="false" required>
+      <button class="primary" type="submit">
+        <i class="fa-solid fa-search"></i> Consultar IP
+      </button>
+    </div>
+  </form>
+
+  <div class="actions">
+    <button class="green" id="myIpBtn" type="button">
+      <i class="fa-solid fa-globe"></i> Mi IP pública
+    </button>
+    <button class="secondary" id="exampleBtn" type="button">
+      <i class="fa-solid fa-flask"></i> Probar IP pública
+    </button>
+    <button class="secondary" id="privateBtn" type="button">
+      <i class="fa-solid fa-house-laptop"></i> Probar IP privada
+    </button>
+    <button class="secondary" id="copyBtn" type="button" disabled>
+      <i class="fa-regular fa-copy"></i> Copiar resultados
+    </button>
+    <button class="secondary" id="exportBtn" type="button" disabled>
+      <i class="fa-solid fa-file-arrow-down"></i> Descargar TXT
+    </button>
+  </div>
+
+  <div id="status" class="status">Escribe una IP para comenzar.</div>
+</section>
+
+<section class="stats">
+  <div class="stat">
+    <i class="fa-solid fa-network-wired"></i>
+    <small>Dirección IP</small>
+    <strong id="statIp">—</strong>
+  </div>
+  <div class="stat">
+    <i class="fa-solid fa-earth-americas"></i>
+    <small>País detectado</small>
+    <strong id="statCountry">—</strong>
+  </div>
+  <div class="stat">
+    <i class="fa-solid fa-city"></i>
+    <small>Ciudad / región</small>
+    <strong id="statCity">—</strong>
+  </div>
+  <div class="stat">
+    <i class="fa-solid fa-building"></i>
+    <small>Empresa / proveedor</small>
+    <strong id="statCompany">—</strong>
+  </div>
+</section>
+
+<section class="layout">
+
+  <div class="panel">
+    <h2><i class="fa-solid fa-circle-info"></i> Información completa</h2>
+    <div id="details" class="details"></div>
+    <p class="note">
+      Los datos dependen del proveedor de geolocalización. El país indicado
+      no determina la nacionalidad de una persona, y la empresa puede ser
+      el proveedor de Internet, una organización o el operador de la red.
+    </p>
+  </div>
+
+  <div class="panel">
+    <h2><i class="fa-solid fa-map-location-dot"></i> Ubicación en el mapa</h2>
+    <div id="map"></div>
+    <p id="mapCaption" class="caption">
+      Consulta una IP pública para intentar obtener las coordenadas.
+    </p>
+    <button id="openMapBtn" class="secondary" type="button" disabled>
+      <i class="fa-solid fa-up-right-from-square"></i> Abrir en Google Maps
+    </button>
+  </div>
+
+</section>
+
+<section class="panel">
+  <h2><i class="fa-solid fa-clock-rotate-left"></i> Historial de consultas</h2>
+  <p class="note">Se guardan hasta 30 consultas en este navegador.</p>
+  <div id="history"></div>
+  <button id="clearHistoryBtn" class="danger" type="button">
+    <i class="fa-solid fa-trash"></i> Borrar historial
+  </button>
+</section>
+
+<section class="panel">
+  <h2><i class="fa-solid fa-shield-halved"></i> ¿Qué sucede con las IP privadas?</h2>
+  <p class="note">
+    Las direcciones 192.168.x.x, 10.x.x.x y 172.16.x.x–172.31.x.x
+    se utilizan en redes privadas. Esta página puede reconocerlas,
+    pero no puede consultar una ubicación pública individual para ellas.
+    Para conocer los dispositivos de tu propia red local se necesita
+    información del router o una herramienta que tenga acceso a esa red.
+  </p>
+  <p class="note">
+    El punto del mapa representa una ubicación estimada asociada a la IP.
+    Puede estar lejos de la persona o del dispositivo, especialmente si
+    utiliza una VPN, proxy, red móvil o infraestructura empresarial.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  <strong>IP Tracker Pro</strong> · Herramienta informativa de redes
+  <br><br>
+  La información proviene de servicios externos y puede ser incompleta.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+"use strict";
+
+const $ = id => document.getElementById(id);
+const HISTORY_KEY = "ip_tracker_pro_history_v3";
+
+let currentResult = null;
+let map = null;
+let marker = null;
+let requestId = 0;
+
+function esc(v){
+  return String(v ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  })[ch]);
+}
+
+function val(v){
+  return v === null || v === undefined || v === "" ? "No disponible" : String(v);
+}
+
+function setStatus(message,type=""){
+  $("status").className = "status " + type;
+  $("status").textContent = message;
+}
+
+function isIPv4(ip){
+  const parts = ip.split(".");
+  return parts.length === 4 && parts.every(part =>
+    /^\d{1,3}$/.test(part) &&
+    Number(part) >= 0 &&
+    Number(part) <= 255
+  );
+}
+
+/* Validador IPv6 que admite direcciones comprimidas y direcciones mixtas. */
+function isIPv6(ip){
+  if(!ip.includes(":")) return false;
+  if(!/^[0-9a-fA-F:.]+$/.test(ip)) return false;
+  if((ip.match(/::/g)||[]).length > 1) return false;
+
+  let address = ip;
+
+  if(address.includes(".")){
+    const pos = address.lastIndexOf(":");
+    const embedded = address.slice(pos+1);
+
+    if(!isIPv4(embedded)) return false;
+
+    address = address.slice(0,pos) + ":0:0";
+  }
+
+  const compressed = address.includes("::");
+  const parts = address.split(":").filter(Boolean);
+
+  if(parts.some(part => part.length > 4)) return false;
+
+  if(compressed) return parts.length < 8;
+  return parts.length === 8;
+}
+
+function validIP(ip){
+  return isIPv4(ip) || isIPv6(ip);
+}
+
+function classification(ip){
+  if(isIPv4(ip)){
+    const p = ip.split(".").map(Number);
+
+    if(p[0]===10 ||
+      (p[0]===172 && p[1]>=16 && p[1]<=31) ||
+      (p[0]===192 && p[1]===168)) return "Privada IPv4";
+
+    if(p[0]===127) return "Bucle local IPv4";
+    if(p[0]===169 && p[1]===254) return "Enlace local IPv4";
+    if(p[0]===0) return "Dirección no especificada";
+    if(p[0]>=224) return "Multicast o reservada";
+    if(p[0]===100 && p[1]>=64 && p[1]<=127) return "Compartida / CGNAT";
+
+    if(p[0]===192 && p[1]===0 && p[2]===2) return "Documentación / prueba";
+    if(p[0]===198 && (p[1]===18 || p[1]===19)) return "Pruebas de red";
+    if(p[0]===198 && p[1]===51 && p[2]===100) return "Documentación / prueba";
+    if(p[0]===203 && p[1]===0 && p[2]===113) return "Documentación / prueba";
+
+    return "Posible IPv4 pública";
+  }
+
+  const x=ip.toLowerCase();
+
+  if(x==="::1") return "Bucle local IPv6";
+  if(x==="::") return "Dirección no especificada IPv6";
+  if(x.startsWith("fc") || x.startsWith("fd")) return "Privada IPv6 (ULA)";
+  if(/^fe[89ab]/.test(x)) return "Enlace local IPv6";
+  if(x.startsWith("ff")) return "Multicast IPv6";
+  if(x.startsWith("2001:db8")) return "Documentación / prueba IPv6";
+
+  if(x.startsWith("::ffff:")){
+    const embedded=x.substring(7);
+    if(isIPv4(embedded)) return classification(embedded);
+  }
+
+  return "Posible IPv6 pública";
+}
+
+function isNonPublic(ip){
+  const c=classification(ip);
+  return !c.startsWith("Posible IPv");
+}
+
+function getHistory(){
+  try{
+    const data=JSON.parse(localStorage.getItem(HISTORY_KEY)||"[]");
+    return Array.isArray(data)?data:[];
+  }catch{
+    return [];
+  }
+}
+
+function saveHistory(data){
+  try{
+    const old=getHistory().filter(item=>item.ip!==data.ip);
+    old.unshift({...data,queriedAt:new Date().toLocaleString()});
+    localStorage.setItem(HISTORY_KEY,JSON.stringify(old.slice(0,30)));
+  }catch(e){
+    console.warn("No se pudo guardar el historial",e);
+  }
+  renderHistory();
+}
+
+function renderHistory(){
+  const history=getHistory();
+
+  if(!history.length){
+    $("history").innerHTML='<p class="note">Todavía no hay consultas guardadas.</p>';
+    return;
+  }
+
+  $("history").innerHTML=history.map((item,i)=>`
+    <div class="history-item">
+      <div>
+        <strong>${esc(item.ip)}</strong>
+        <small>${esc(item.city||item.classification||"Sin ciudad")} · ${esc(item.country||"Sin país")}</small>
+        <small>${esc(item.queriedAt||"Fecha no disponible")}</small>
+      </div>
+      <button class="primary" type="button" data-history="${i}">Ver</button>
+    </div>
+  `).join("");
+
+  $("history").querySelectorAll("[data-history]").forEach(button=>{
+    button.addEventListener("click",()=>{
+      const item=getHistory()[Number(button.dataset.history)];
+      if(item) displayResult(item,false);
+    });
+  });
+}
+
+async function fetchJSON(url,timeout=12000){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeout);
+
+  try{
+    const response=await fetch(url,{
+      signal:controller.signal,
+      cache:"no-store",
+      headers:{"Accept":"application/json"}
+    });
+
+    if(!response.ok) throw new Error("El servicio respondió con HTTP "+response.status);
+    return await response.json();
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+function normalizeWho(d){
+  if(!d || !d.ip || d.success===false){
+    throw new Error(d?.message||"No se encontró información para esa IP.");
+  }
+
+  const c=d.connection||{};
+  const t=d.timezone||{};
+  const m=d.currency||{};
+
+  return {
+    ip:d.ip,
+    version:d.type||"",
+    continent:d.continent||"",
+    continentCode:d.continent_code||"",
+    country:d.country||"",
+    countryCode:d.country_code||"",
+    region:d.region||"",
+    regionCode:d.region_code||"",
+    city:d.city||"",
+    postal:d.postal||"",
+    latitude:d.latitude,
+    longitude:d.longitude,
+    timezone:t.id||"",
+    utc:t.utc||"",
+    localTime:t.current_time||"",
+    callingCode:d.calling_code||"",
+    currency:m.name||"",
+    currencyCode:m.code||"",
+    currencySymbol:m.symbol||"",
+    languages:d.languages||"",
+    isp:c.isp||"",
+    company:c.org||c.isp||"",
+    domain:c.domain||"",
+    asn:c.asn||"",
+    connectionType:c.type||"",
+    source:"ipwho.is"
+  };
+}
+
+function normalizeIpApi(d){
+  if(!d || !d.ip || d.error){
+    throw new Error(d?.reason||d?.message||"No se encontró información para esa IP.");
+  }
+
+  return {
+    ip:d.ip,
+    version:d.version||"",
+    continent:d.continent_name||"",
+    continentCode:d.continent_code||"",
+    country:d.country_name||"",
+    countryCode:d.country_code||"",
+    region:d.region||"",
+    regionCode:d.region_code||"",
+    city:d.city||"",
+    postal:d.postal||"",
+    latitude:d.latitude,
+    longitude:d.longitude,
+    timezone:d.timezone||"",
+    utc:d.utc_offset||"",
+    localTime:"",
+    callingCode:d.country_calling_code||"",
+    currency:d.currency_name||"",
+    currencyCode:d.currency||"",
+    currencySymbol:"",
+    languages:d.languages||"",
+    isp:d.org||"",
+    company:d.org||"",
+    domain:d.hostname||"",
+    asn:d.asn||"",
+    connectionType:"",
+    source:"ipapi.co"
+  };
+}
+
+async function queryPublicIP(ip){
+  let firstError;
+
+  try{
+    return normalizeWho(await fetchJSON("https://ipwho.is/"+encodeURIComponent(ip)));
+  }catch(e){
+    firstError=e;
+  }
+
+  try{
+    return normalizeIpApi(await fetchJSON("https://ipapi.co/"+encodeURIComponent(ip)+"/json/"));
+  }catch(e){
+    throw new Error(
+      "No fue posible obtener datos de los servicios externos. " +
+      "Comprueba la conexión o inténtalo más tarde. " +
+      "Detalle: "+(e.message||firstError?.message||"Error desconocido")
+    );
+  }
+}
+
+async function queryMyIP(){
+  try{
+    return normalizeWho(await fetchJSON("https://ipwho.is/"));
+  }catch(firstError){
+    try{
+      return normalizeIpApi(await fetchJSON("https://ipapi.co/json/"));
+    }catch(secondError){
+      throw new Error("No se pudo detectar tu IP pública. "+
+        (secondError.message||firstError.message||""));
+    }
+  }
+}
+
+function localResult(ip){
+  return {
+    ip,
+    version:isIPv4(ip)?"IPv4":"IPv6",
+    classification:classification(ip),
+    continent:"",
+    continentCode:"",
+    country:"",
+    countryCode:"",
+    region:"",
+    regionCode:"",
+    city:"",
+    postal:"",
+    latitude:null,
+    longitude:null,
+    timezone:"",
+    utc:"",
+    localTime:"",
+    callingCode:"",
+    currency:"",
+    currencyCode:"",
+    currencySymbol:"",
+    languages:"",
+    isp:"",
+    company:"",
+    domain:"",
+    asn:"",
+    connectionType:"",
+    source:"Clasificación local"
+  };
+}
+
+function hasCoordinates(d){
+  return d.latitude!==null && d.latitude!==undefined &&
+    d.longitude!==null && d.longitude!==undefined &&
+    d.latitude!=="" && d.longitude!=="" &&
+    Number.isFinite(Number(d.latitude)) &&
+    Number.isFinite(Number(d.longitude)) &&
+    Math.abs(Number(d.latitude))<=90 &&
+    Math.abs(Number(d.longitude))<=180;
+}
+
+function showMap(d){
+  if(typeof L==="undefined"){
+    $("map").innerHTML='<p style="padding:18px;color:#91a7c2">No se pudo cargar el mapa. Revisa la conexión.</p>';
+    $("mapCaption").textContent="La biblioteca del mapa no está disponible.";
+    $("openMapBtn").disabled=!hasCoordinates(d);
+    return;
+  }
+
+  if(!hasCoordinates(d)){
+    if(map){
+      map.remove();
+      map=null;
+      marker=null;
+    }
+
+    $("map").innerHTML='<p style="padding:20px;color:#91a7c2">Esta IP no tiene coordenadas geográficas disponibles.</p>';
+    $("mapCaption").textContent="Las IP privadas y reservadas no tienen geolocalización pública individual.";
+    $("openMapBtn").disabled=true;
+    return;
+  }
+
+  const lat=Number(d.latitude);
+  const lon=Number(d.longitude);
+
+  if(!map){
+    $("map").innerHTML="";
+    map=L.map("map").setView([lat,lon],10);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      maxZoom:19,
+      attribution:'&copy; OpenStreetMap contributors'
+    }).addTo(map);
+  }else{
+    map.setView([lat,lon],10);
+  }
+
+  if(marker) marker.remove();
+
+  const title=d.city
+    ?d.city+", "+(d.region?d.region+", ":"")+(d.country||"País desconocido")
+    :(d.country||"Ubicación aproximada");
+
+  marker=L.marker([lat,lon]).addTo(map);
+
+  marker.bindPopup(`
+    <strong>${esc(title)}</strong><br>
+    IP: ${esc(d.ip)}<br>
+    Empresa: ${esc(d.company||d.isp||"No disponible")}<br>
+    Coordenadas: ${lat}, ${lon}<br>
+    <small>Ubicación aproximada por IP</small>
+  `).openPopup();
+
+  $("mapCaption").innerHTML=
+    "<b>"+esc(title)+"</b><br>Latitud: "+lat+" · Longitud: "+lon+
+    "<br><span class='badge'>Ubicación aproximada</span>";
+
+  $("openMapBtn").disabled=false;
+  $("openMapBtn").dataset.url=
+    "https://www.google.com/maps?q="+encodeURIComponent(lat+","+lon);
+
+  setTimeout(()=>map.invalidateSize(),150);
+}
+
+function renderDetails(d){
+  const fields=[
+    ["Dirección IP",d.ip],
+    ["Versión",d.version],
+    ["Clasificación de red",d.classification],
+    ["País detectado",d.country],
+    ["Código del país",d.countryCode],
+    ["Continente",d.continent],
+    ["Código del continente",d.continentCode],
+    ["Provincia / región",d.region],
+    ["Código de región",d.regionCode],
+    ["Ciudad",d.city],
+    ["Código postal",d.postal],
+    ["Latitud",d.latitude],
+    ["Longitud",d.longitude],
+    ["Zona horaria",d.timezone],
+    ["Diferencia UTC",d.utc],
+    ["Hora local informada",d.localTime],
+    ["Código telefónico",d.callingCode],
+    ["Moneda",d.currency],
+    ["Código de moneda",d.currencyCode],
+    ["Símbolo monetario",d.currencySymbol],
+    ["Idiomas",d.languages],
+    ["Empresa / organización",d.company],
+    ["Proveedor de Internet",d.isp],
+    ["Dominio",d.domain],
+    ["ASN de la red",d.asn],
+    ["Tipo de conexión",d.connectionType],
+    ["Servicio consultado",d.source]
+  ];
+
+  $("details").innerHTML=fields.map(([label,v])=>`
+    <div class="detail">
+      <small>${esc(label)}</small>
+      <strong>${esc(val(v))}</strong>
+    </div>
+  `).join("");
+}
+
+function displayResult(d,save=true){
+  currentResult=d;
+
+  $("statIp").textContent=val(d.ip);
+  $("statCountry").textContent=d.countryCode
+    ?d.countryCode+" · "+val(d.country)
+    :val(d.country||d.classification);
+  $("statCity").textContent=val(d.city||d.region);
+  $("statCompany").textContent=val(d.company||d.isp);
+
+  $("ipInput").value=d.ip||"";
+  renderDetails(d);
+  showMap(d);
+
+  if(d.classification && !d.country){
+    setStatus(
+      "IP reconocida: "+d.classification+
+      ". Se muestran los datos que pueden conocerse localmente; no hay geolocalización pública.",
+      "ok"
+    );
+  }else if(d.ip){
+    setStatus(`Resultados para ${d.ip}.`, "ok");
+  }else{
+    setStatus("Introduce una dirección IP válida.", "error");
+  }
+
+  const canSave=!!d.ip;
+  $("copyBtn").disabled=!canSave;
+  $("exportBtn").disabled=!canSave;
+
+  if(save && d.ip) saveHistory(d);
+}
+
+async function searchIP(ip){
+  if(!ip || !validIP(ip)){
+    setStatus("Por favor, introduce una dirección IP válida (IPv4 o IPv6).","error");
+    return;
+  }
+
+  setStatus("Consultando...");
+  const ipClass = classification(ip);
+
+  try{
+    let result;
+
+    if(isNonPublic(ip)){
+      result=localResult(ip);
+      displayResult(result);
+    }else{
+      result=await queryPublicIP(ip);
+      displayResult(result);
+    }
+  }catch(e){
+    setStatus(e.message, "error");
+    console.error("Error consultando IP:", e);
+    currentResult = null;
+    $("copyBtn").disabled = true;
+    $("exportBtn").disabled = true;
+  }
+}
+
+function copyResults(){
+  if(!currentResult) return;
+
+  const lines=[
+    "--- IP Tracker Pro ---",
+    `IP: ${val(currentResult.ip)} (${currentResult.version}, ${currentResult.classification})`,
+    `País: ${val(currentResult.country)} (${currentResult.countryCode})`,
+    `Región: ${val(currentResult.region)} (${currentResult.regionCode})`,
+    `Ciudad: ${val(currentResult.city)}`,
+    `Código Postal: ${val(currentResult.postal)}`,
+    `Coordenadas: ${currentResult.latitude ? currentResult.latitude + ", " + currentResult.longitude : "No disponibles"}`,
+    `Zona Horaria: ${val(currentResult.timezone)} (${val(currentResult.utc)})`,
+    `Proveedor / ISP: ${val(currentResult.isp)}`,
+    `Empresa / Organización: ${val(currentResult.company)}`,
+    `ASN: ${val(currentResult.asn)}`,
+    `Servicio: ${val(currentResult.source)}`
+  ].join("\n");
+
+  navigator.clipboard.writeText(lines).then(()=>{
+    const originalText=$("copyBtn").textContent;
+    $("copyBtn").textContent="¡Copiado!";
+    setTimeout(()=>$("copyBtn").textContent=originalText,1500);
+  }).catch(err=>alert("Error al copiar: "+err));
+}
+
+function exportResults(){
+  if(!currentResult) return;
+
+  const lines=[
+    "--- IP Tracker Pro ---",
+    `IP: ${val(currentResult.ip)} (${currentResult.version}, ${currentResult.classification})`,
+    `País: ${val(currentResult.country)} (${currentResult.countryCode})`,
+    `Región: ${val(currentResult.region)} (${currentResult.regionCode})`,
+    `Ciudad: ${val(currentResult.city)}`,
+    `Código Postal: ${val(currentResult.postal)}`,
+    `Coordenadas: ${currentResult.latitude ? currentResult.latitude + ", " + currentResult.longitude : "No disponibles"}`,
+    `Zona Horaria: ${val(currentResult.timezone)} (${val(currentResult.utc)})`,
+    `Proveedor / ISP: ${val(currentResult.isp)}`,
+    `Empresa / Organización: ${val(currentResult.company)}`,
+    `ASN: ${val(currentResult.asn)}`,
+    `Servicio: ${val(currentResult.source)}`
+  ].join("\n");
+
+  const blob=new Blob([lines],{type:"text/plain"});
+  const url=URL.createObjectURL(blob);
+  const link=document.createElement("a");
+
+  link.href=url;
+  link.download=`${currentResult.ip}_${Date.now()}.txt`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function clearHistory(){
+  if(!confirm("¿Estás seguro de que deseas borrar todo el historial de consultas?")) return;
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+  setStatus("Historial de consultas borrado.");
+}
+
+function handleExampleIP(){
+  const examples=[
+    "8.8.8.8",          // Google DNS
+    "1.1.1.1",          // Cloudflare DNS
+    "208.67.222.222",   // OpenDNS
+    "185.60.216.35",    // IP pública de ejemplo (puede variar)
+    "2a03:2880:f10c:83:face:b00c:0:25de", // IPv6 de ejemplo (Wikipedia)
+    "2606:4700:4700::1111" // Cloudflare DNS IPv6
+  ];
+  const ip=examples[Math.floor(Math.random()*examples.length)];
+  $("ipInput").value=ip;
+  searchIP(ip);
+}
+
+function handleMyIP(){
+  setStatus("Detectando tu IP pública...");
+  queryMyIP().then(result=>{
+    displayResult(result);
+  }).catch(e=>{
+    setStatus(e.message,"error");
+  });
+}
+
+function handlePrivateIP(){
+  const privateIPs = ["192.168.1.1", "10.0.0.1", "172.20.10.1"];
+  const ip = privateIPs[Math.floor(Math.random() * privateIPs.length)];
+  $("ipInput").value = ip;
+  searchIP(ip);
+}
+
+function init(){
+  $("searchForm").addEventListener("submit",e=>{
+    e.preventDefault();
+    searchIP($("ipInput").value.trim());
+  });
+
+  $("myIpBtn").addEventListener("click",handleMyIP);
+  $("exampleBtn").addEventListener("click",handleExampleIP);
+  $("privateBtn").addEventListener("click",handlePrivateIP);
+  $("copyBtn").addEventListener("click",copyResults);
+  $("exportBtn").addEventListener("click",exportResults);
+  $("clearHistoryBtn").addEventListener("click",clearHistory);
+  $("openMapBtn").addEventListener("click",e=>{
+    const url=e.target.dataset.url;
+    if(url) window.open(url,"_blank");
+  });
+
+  renderHistory();
+  setStatus("Escribe una IP para comenzar.");
+}
+
+init();
+</script>
+
+</body>
+</html>
